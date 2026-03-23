@@ -33,7 +33,7 @@ asciiatc [-a ICAO] [-r RANGE] [--lat LAT --lon LON] [--no-rings] [--no-ground]
 
 | Flag | Description |
 |------|-------------|
-| `-a`, `--airport` | ICAO airport code (default: KSFO). Available: KATL, EGLL, KJFK, KLAX, KORD, KSFO |
+| `-a`, `--airport` | ICAO airport code (default: KSFO). Available: KATL, EDDF, EGLL, KDEN, KDFW, KJFK, KLAX, KMIA, KORD, KSEA, KSFO, LFPG, OMDB, RJTT, VHHH, WSSS |
 | `-r`, `--range` | Radar range in nautical miles (default: 30) |
 | `--lat`, `--lon` | Custom center coordinates (must specify both) |
 | `--no-rings` | Start with range rings hidden |
@@ -44,6 +44,8 @@ asciiatc [-a ICAO] [-r RANGE] [--lat LAT --lon LON] [--no-rings] [--no-ground]
 ```bash
 asciiatc -a KJFK              # JFK Airport, 30nm range
 asciiatc -a EGLL -r 50        # Heathrow, 50nm range
+asciiatc -a RJTT -r 40        # Tokyo Haneda, 40nm range
+asciiatc -a OMDB              # Dubai Intl, 30nm range
 asciiatc --lat 51.47 --lon -0.45 -r 100  # Custom location
 ```
 
@@ -52,8 +54,9 @@ asciiatc --lat 51.47 --lon -0.45 -r 100  # Custom location
 | Key | Action |
 |-----|--------|
 | `+` / `-` | Zoom in / out (10nm steps) |
-| `g` | Toggle range rings |
-| `G` | Toggle ground traffic |
+| `r` | Toggle range rings |
+| `g` | Toggle ground traffic |
 | `/` | Search aircraft |
+| `Tab` | Autocomplete search (longest common prefix) |
 | `Esc` | Close detail panel / search |
 | `q` | Quit |

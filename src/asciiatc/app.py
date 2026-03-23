@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from os.path import commonprefix
+
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
+from textual.message import Message
 from textual.widgets import Footer, Header, Input, Static
-from textual import work
 
 from asciiatc.adsb_client import ADSBClient
 from asciiatc.config import (
@@ -15,6 +18,18 @@ from asciiatc.config import (
 )
 from asciiatc.detail_widget import DetailPanel
 from asciiatc.radar_widget import RadarDisplay
+
+
+class SearchInput(Input):
+    """Input that converts Tab into an autocomplete request."""
+
+    class TabPressed(Message):
+        pass
+
+    def key_tab(self, event: events.Key) -> None:
+        event.prevent_default()
+        event.stop()
+        self.post_message(self.TabPressed())
 
 
 class AsciiATCApp(App):
@@ -62,8 +77,8 @@ class AsciiATCApp(App):
         Binding("ctrl+c", "quit", show=False, priority=True),
         Binding("plus,equal", "zoom_in", "Zoom In", key_display="+"),
         Binding("minus", "zoom_out", "Zoom Out", key_display="-"),
-        Binding("g", "toggle_rings", "Rings"),
-        Binding("G", "toggle_ground", "Ground"),
+        Binding("r", "toggle_rings", "Rings"),
+        Binding("g", "toggle_ground", "Ground"),
         Binding("slash", "start_search", "/Search", key_display="/"),
         Binding("escape", "dismiss", "Close", show=False, priority=True),
     ]
@@ -93,7 +108,7 @@ class AsciiATCApp(App):
         with Horizontal(id="main-area"):
             yield RadarDisplay(id="radar")
             yield DetailPanel(id="detail")
-        yield Input(id="search", placeholder="Search callsign or tail...", disabled=True)
+        yield SearchInput(id="search", placeholder="Search callsign or tail... (Tab to autocomplete)", disabled=True)
         yield Static(id="status-bar")
         yield Footer()
 
@@ -143,18 +158,50 @@ class AsciiATCApp(App):
     # --- Search ---
 
     def action_start_search(self) -> None:
-        search = self.query_one("#search", Input)
+        search = self.query_one("#search", SearchInput)
         search.disabled = False
         search.add_class("visible")
         search.value = ""
         search.focus()
 
     def _close_search(self) -> None:
-        search = self.query_one("#search", Input)
+        search = self.query_one("#search", SearchInput)
         search.remove_class("visible")
         search.disabled = True
         search.value = ""
         self.query_one(RadarDisplay).search_query = ""
+
+    def on_search_input_tab_pressed(self) -> None:
+        search = self.query_one("#search", SearchInput)
+        q = search.value.strip().upper()
+        if not q:
+            return
+
+        # Collect matching callsigns and registrations
+        radar = self.query_one(RadarDisplay)
+        candidates: set[str] = set()
+        for ac in radar.aircraft_data:
+            cs = (ac.callsign or "").upper()
+            reg = (ac.registration or "").upper()
+            if cs.startswith(q):
+                candidates.add(cs)
+            if reg.startswith(q):
+                candidates.add(reg)
+
+        if not candidates:
+            self.bell()
+            return
+
+        prefix = commonprefix(sorted(candidates))
+        if len(prefix) > len(q):
+            search.value = prefix
+            search.cursor_position = len(prefix)
+        elif len(candidates) == 1:
+            val = candidates.pop()
+            search.value = val
+            search.cursor_position = len(val)
+        else:
+            self.bell()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "search":
@@ -188,7 +235,7 @@ class AsciiATCApp(App):
 
     def action_dismiss(self) -> None:
         """Handle Escape: close search first, then detail panel."""
-        search = self.query_one("#search", Input)
+        search = self.query_one("#search", SearchInput)
         if search.has_class("visible"):
             self._close_search()
             return
